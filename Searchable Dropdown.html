@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Searchable Dropdowns Example</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .highlight {
+            background-color: #f3f4f6;
+        }
+        .dropdown-item {
+            cursor: pointer;
+            padding: 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .dropdown-menu {
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 space-y-6">
+    <header class="text-center mb-4 w-1/2">
+        <h1 class="text-2xl font-bold">Vanilla JS Searchable Dropdown for TailWind</h1>
+        <p class="text-gray-600">A simple, reusable class for searchable dropdown menus using vanilla JavaScript and Tailwind CSS.</p>
+    </header>
+
+    <div class="relative w-64">
+        <input type="text" id="dog-breeds" class="dropdown-input w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search dog breeds...">
+        <div class="dropdown-menu absolute w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto hidden">
+            <ul class="dropdown-list divide-y divide-gray-200"></ul>
+        </div>
+    </div>
+
+    <div class="relative w-64">
+        <input type="text" id="cat-breeds" class="dropdown-input w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search cat breeds...">
+        <div class="dropdown-menu absolute w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto hidden">
+            <ul class="dropdown-list divide-y divide-gray-200"></ul>
+        </div>
+    </div>
+
+    <footer class="text-center mt-4 w-1/2">
+        <p class="text-gray-600">
+            The <strong>SearchableDropdown</strong> class is designed to create searchable dropdown menus with minimal configuration. It leverages vanilla JavaScript and Tailwind CSS for styling and functionality. You can easily integrate this class into your projects by providing the HTML structure and initializing the class with the necessary parameters.
+        </p>
+        <br>
+        <p class="text-gray-600">
+            To use this class, include the <strong>dropdown-input</strong>, <strong>dropdown-menu</strong>, and <strong>dropdown-list</strong> classes in your HTML. Then, create a new instance of the <strong>SearchableDropdown</strong> class, providing the container element, API URL, a transformation function to format the data, and a placeholder for the input.
+        </p>
+    </footer>
+
+    <script>
+        /*
+         * SearchableDropdown Class
+         * Author: Juan Jose Sanchez Ramirez, MD
+         * Description: A reusable class for creating searchable dropdown menus with vanilla JavaScript and Tailwind CSS.
+         * Date: June 14th, 2024
+         */
+
+        class SearchableDropdown {
+            constructor(dropdownElement, apiUrl, transformFunction, placeholder) {
+                this.dropdownElement = dropdownElement;
+                this.apiUrl = apiUrl;
+                this.transformFunction = transformFunction;
+                this.placeholder = placeholder;
+                this.dropdownInput = this.dropdownElement.querySelector('.dropdown-input');
+                this.dropdownMenu = this.dropdownElement.querySelector('.dropdown-menu');
+                this.dropdownList = this.dropdownElement.querySelector('.dropdown-list');
+                this.items = [];
+                this.currentIndex = -1;
+                this.init();
+            }
+
+            async init() {
+                this.items = await this.fetchData(this.apiUrl, this.transformFunction);
+                this.dropdownInput.addEventListener('input', this.onInput.bind(this));
+                this.dropdownInput.addEventListener('keydown', this.onKeyDown.bind(this));
+                this.dropdownList.addEventListener('mousemove', this.onMouseMove.bind(this));
+                this.dropdownMenu.addEventListener('mousedown', this.onMouseDown.bind(this));
+                this.dropdownMenu.addEventListener('click', this.onClick.bind(this));
+                this.dropdownInput.addEventListener('focus', this.onFocus.bind(this));
+                this.dropdownInput.addEventListener('blur', this.onBlur.bind(this));
+            }
+
+            async fetchData(url, transformFunction) {
+                const response = await fetch(url);
+                const data = await response.json();
+                return transformFunction(data);
+            }
+
+            onInput() {
+                const query = this.dropdownInput.value.toLowerCase();
+                const filteredItems = this.items.filter(item => item.name.toLowerCase().includes(query));
+                this.populateDropdown(filteredItems);
+                this.dropdownMenu.classList.toggle('hidden', filteredItems.length === 0);
+                if (filteredItems.length === 1) {
+                    this.currentIndex = 0;
+                    this.updateHighlight(this.dropdownList.getElementsByTagName('li'));
+                } else {
+                    this.currentIndex = -1;
+                }
+            }
+
+            onKeyDown(e) {
+                const listItems = this.dropdownList.getElementsByTagName('li');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (this.currentIndex < listItems.length - 1) {
+                        this.currentIndex++;
+                        this.updateHighlight(listItems);
+                        this.ensureVisible(listItems[this.currentIndex]);
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (this.currentIndex > 0) {
+                        this.currentIndex--;
+                        this.updateHighlight(listItems);
+                        this.ensureVisible(listItems[this.currentIndex]);
+                    }
+                } else if (e.key === 'Enter' && this.currentIndex >= 0) {
+                    e.preventDefault();
+                    this.selectItem(listItems[this.currentIndex]);
+                }
+            }
+
+            onMouseMove(e) {
+                if (e.target.tagName === 'LI') {
+                    const listItems = this.dropdownList.getElementsByTagName('li');
+                    const hoveredIndex = Array.prototype.indexOf.call(listItems, e.target);
+                    if (hoveredIndex !== this.currentIndex) {
+                        this.currentIndex = hoveredIndex;
+                        this.updateHighlight(listItems);
+                    }
+                }
+            }
+
+            onMouseDown(e) {
+                e.preventDefault(); // Prevent blur event on input when clicking on the dropdown
+            }
+
+            onClick() {
+                const listItems = this.dropdownList.getElementsByTagName('li');
+                if (this.currentIndex >= 0 && this.currentIndex < listItems.length) {
+                    this.selectItem(listItems[this.currentIndex]);
+                }
+            }
+
+            onFocus() {
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    if (menu !== this.dropdownMenu) {
+                        menu.classList.add('hidden');
+                    }
+                });
+
+                const query = this.dropdownInput.value.toLowerCase();
+                const filteredItems = this.items.filter(item => item.name.toLowerCase().includes(query));
+                this.populateDropdown(filteredItems);
+                this.dropdownMenu.classList.toggle('hidden', filteredItems.length === 0);
+            }
+
+            onBlur() {
+                setTimeout(() => this.dropdownMenu.classList.add('hidden'), 100);
+            }
+
+            populateDropdown(items) {
+                this.dropdownList.innerHTML = '';
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.classList.add('dropdown-item');
+                    li.textContent = `${item.name} (${item.details})`;
+                    this.dropdownList.appendChild(li);
+                });
+            }
+
+            updateHighlight(items) {
+                for (let i = 0; i < items.length; i++) {
+                    items[i].classList.remove('highlight');
+                }
+                if (this.currentIndex >= 0 && this.currentIndex < items.length) {
+                    items[this.currentIndex].classList.add('highlight');
+                }
+            }
+
+            ensureVisible(item) {
+                const rect = item.getBoundingClientRect();
+                const dropdownRect = this.dropdownMenu.getBoundingClientRect();
+                if (rect.top < dropdownRect.top) {
+                    item.scrollIntoView({ block: 'nearest' });
+                } else if (rect.bottom > dropdownRect.bottom) {
+                    item.scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            selectItem(item) {
+                this.dropdownInput.value = item.textContent;
+                this.dropdownMenu.classList.add('hidden');
+                this.currentIndex = -1; // Reset currentIndex after selection
+                this.updateHighlight([]);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new SearchableDropdown(
+                document.querySelector('.relative:nth-child(2)'),
+                'https://dog.ceo/api/breeds/list/all',
+                data => Object.keys(data.message).map(breed => ({ name: breed, details: 'Dog Breed' })),
+                'Search dog breeds...'
+            );
+
+            new SearchableDropdown(
+                document.querySelector('.relative:nth-child(3)'),
+                'https://api.thecatapi.com/v1/breeds',
+                data => data.map(breed => ({ name: breed.name, details: breed.origin })),
+                'Search cat breeds...'
+            );
+        });
+    </script>
+</body>
+</html>
